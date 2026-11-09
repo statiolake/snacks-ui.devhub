@@ -6,13 +6,13 @@
 -- the person's own (width, height, the preview's share), whose input and
 -- list windows are hidden (`hide = true`): they stay real buffers — the
 -- query in Insert mode, the list one line per row — and DevHub draws them
--- through devhub.nvim's picker-agnostic `gui.picker` (round a `gui.view` of
--- the list's buffer). The preview stays a Neovim window, drawn as cells
--- inside the frame.
+-- as a framed `gui.view` of the list's buffer (devhub.nvim, picker-agnostic).
+-- The preview stays a Neovim window, drawn as cells inside the frame.
 --
--- Outside DevHub's GUI, with a layout that is not a float (sidebar, ivy's
--- split, a preview in the main window), or on any error, snacks is left as
--- it is.
+-- A DevHub extension: it needs DevHub's GUI and devhub.nvim, and is loaded
+-- only there. With a layout that is not one group of floats (sidebar, ivy's
+-- split, a preview in the main window), or when snacks' internals are not
+-- what it expects (another snacks version), snacks draws itself.
 
 local M = {}
 
@@ -55,23 +55,14 @@ M.config = vim.deepcopy(defaults)
 
 local installed = false
 
-local function gui()
-  local ok, devhub = pcall(require, 'devhub')
-  return ok and devhub.gui or nil
-end
-
---- Whether pickers are drawn by DevHub now.
+--- Whether pickers are drawn by DevHub now (DevHub's GUI is this plugin's
+--- engine: load it only there).
 function M.active()
   local g = vim.g.snacks_ui_devhub
-  if g == false or (g == nil and not M.config.enabled) then
-    return false
+  if g ~= nil then
+    return g ~= false
   end
-  local gu = gui()
-  if not gu or not gu.available() or not gu.picker then
-    return false
-  end
-  local core = package.loaded['devhub_gui']
-  return core ~= nil and core.picker ~= nil
+  return M.config.enabled ~= false
 end
 
 -- The person's layout, as snacks resolves it, and its float's sizes.

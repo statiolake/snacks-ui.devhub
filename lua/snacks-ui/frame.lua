@@ -1,12 +1,12 @@
--- One snacks picker on DevHub's gui.picker (devhub.nvim): the root box
--- window is the frame, the hidden input is the query, a gui.view of the
--- hidden list's buffer is the list, the preview is the preview.
+-- One snacks picker as a framed gui.view (devhub.nvim): the view is the
+-- hidden list's buffer, its frame the root box window, the hidden input its
+-- query and the preview its preview.
 
 local rows = require 'snacks-ui.rows'
 
 local M = {}
 
--- picker -> { handle (gui.picker), view (gui.view), sent, rows }
+-- picker -> { view (a framed gui.view), sent, rows }
 local attached = setmetatable({}, { __mode = 'k' })
 
 local function valid(win)
@@ -179,7 +179,7 @@ end
 -- After each render: the parts that changed, and the cursor.
 local function refresh(picker, config)
   local a = attached[picker]
-  if not a or picker.closed or not a.handle.is_open() then
+  if not a or picker.closed then
     return
   end
   local changes = {}
@@ -190,7 +190,7 @@ local function refresh(picker, config)
     a.sent = key
     changes.status = st
     changes.preview_title = pt
-    a.handle:update(changes)
+    a.view:frame(changes)
   end
   -- The picker's windows: snacks' unhide() (pick_win) shows them again.
   for _, win in ipairs { picker.input.win, picker.list.win } do
@@ -198,14 +198,14 @@ local function refresh(picker, config)
       pcall(vim.api.nvim_win_set_config, win.win, { hide = true })
     end
   end
-  a.handle:redraw()
+  a.view:redraw()
 end
 
 function M.attach(picker, config)
   if attached[picker] then
     return
   end
-  local gui = require('devhub').gui
+  local gui = require('devhub').gui -- devhub.nvim: required
   local layout = picker.layout
   if not (layout and layout.root and valid(layout.root) and valid(picker.list.win) and valid(picker.input.win)) then
     error 'the picker has no windows'
@@ -213,6 +213,7 @@ function M.attach(picker, config)
   local list = picker.list
   local view = gui.view {
     buf = list.win.buf,
+    win = list.win.win,
     items = function(lnum, line)
       return rows.item(picker, lnum, line)
     end,
@@ -242,21 +243,16 @@ function M.attach(picker, config)
         set_rows(picker, n)
       end
     end,
-  }
-  local handle = gui.picker {
-    win = layout.root.win,
-    query = { win = picker.input.win.win, placeholder = config.labels.search },
-    list = { view = view, win = list.win.win },
-    preview = { win = valid(picker.preview.win) and picker.preview.win.win or nil, title = preview_title(picker, config) },
-    title = title(picker, config),
-    status = status(picker, config),
     keys = M.hints(picker, config),
+    frame = {
+      win = layout.root.win,
+      query = { win = picker.input.win.win, placeholder = config.labels.search },
+      preview = { win = valid(picker.preview.win) and picker.preview.win.win or nil, title = preview_title(picker, config) },
+      title = title(picker, config),
+      status = status(picker, config),
+    },
   }
-  if not handle then
-    pcall(view.close, view)
-    error 'DevHub has no picker'
-  end
-  local a = { handle = handle, view = view }
+  local a = { view = view }
   attached[picker] = a
   -- Every change of the list goes through render(): the rows (an edit of
   -- the list buffer DevHub sees itself), the cursor and the counts.
@@ -293,7 +289,7 @@ function M.attach(picker, config)
   layout.root:on('WinResized', function()
     vim.schedule(function()
       if attached[picker] and not picker.closed then
-        handle:update { preview_win = valid(picker.preview.win) and picker.preview.win.win or false }
+        view:frame { preview_win = valid(picker.preview.win) and picker.preview.win.win or false }
       end
     end)
   end)
@@ -312,7 +308,6 @@ function M.detach(picker, unhide)
   local a = attached[picker]
   attached[picker] = nil
   if a then
-    pcall(a.handle.close)
     pcall(a.view.close, a.view)
   end
   if unhide then

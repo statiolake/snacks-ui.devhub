@@ -6,9 +6,10 @@ DevHub's type (a file's name first, its directory after, matches in bold),
 grep's hits under a heading per file, buffers' flags as words, a real query
 field — round a preview that stays a Neovim window.
 
-A DevHub-only extension (named `.devhub`, as Neovim plugins are `.nvim`): it
-does something only in DevHub's GUI. Everywhere else — a terminal Neovim, an
-SSH TUI — snacks draws itself, unchanged.
+A DevHub extension (named `.devhub`, as Neovim plugins are `.nvim`): DevHub's
+GUI is its engine, so it needs DevHub and devhub.nvim and is meant to be
+loaded only there (the `cond` below); a terminal Neovim keeps plain snacks by
+not loading it.
 
 ## What stays snacks'
 
@@ -19,10 +20,11 @@ maps as always (a `<C-q>` that runs your own action keeps doing so).
 
 Each picker gets a layout of your layout's size (its width, height and the
 preview's share) in which snacks' input and list windows are hidden and
-borderless. devhub.nvim's picker-agnostic `gui.picker` draws the frame round
-a `gui.view` of snacks' list buffer, where those windows stand. A layout
+borderless, and snacks' list buffer becomes a framed `gui.view` (devhub.nvim,
+picker-agnostic): DevHub draws its frame where those windows stand. A layout
 that is not one group of floats (`sidebar`, `ivy`'s split, a preview in the
-main window) is left to snacks, as is any picker when something fails.
+main window) is left to snacks, as is any picker when snacks' internals are
+not what this plugin expects (another snacks version).
 
 ## Install
 
