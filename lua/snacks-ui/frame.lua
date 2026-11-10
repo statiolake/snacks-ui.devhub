@@ -13,24 +13,6 @@ local function valid(win)
   return win and win.win and vim.api.nvim_win_is_valid(win.win)
 end
 
--- "<C-v>" -> "^v", "<CR>" -> "↩".
-local KEYS = { ['<cr>'] = '↩', ['<tab>'] = '⇥', ['<s-tab>'] = '⇤', ['<esc>'] = 'esc', ['<down>'] = '↓', ['<up>'] = '↑' }
-local function pretty(lhs)
-  local lower = lhs:lower()
-  if KEYS[lower] then
-    return KEYS[lower]
-  end
-  local ctrl = lower:match '^<c%-(.)>$'
-  if ctrl then
-    return '^' .. ctrl
-  end
-  local alt = lower:match '^<[am]%-(.)>$'
-  if alt then
-    return '⌥' .. alt
-  end
-  return lhs
-end
-
 -- The hint row: for each action the config names, the keys of the input
 -- window (Insert mode first: that is where the person is) that do it.
 function M.hints(picker, config)
@@ -60,7 +42,11 @@ function M.hints(picker, config)
         end
         return a.lhs < b.lhs
       end)
-      local shown = { pretty(keys[1].lhs) }
+      -- The keys go as Vim writes them (<C-v>, <CR>): DevHub writes every
+      -- hint's keys in its one notation, a Mac's (⌃V, ↩, ⎋, ⇥; a modified
+      -- letter a capital), as its own hints and tmux's, so none is spelled
+      -- here — one notation, written in one place.
+      local shown = { keys[1].lhs }
       if action == 'list_down' then
         -- moving is a pair: down and up
         local up = by_action.list_up
@@ -76,7 +62,7 @@ function M.hints(picker, config)
               pick = k.lhs
             end
           end
-          shown[1] = shown[1] .. ' ' .. pretty(pick)
+          shown[1] = shown[1] .. ' ' .. pick
         end
       end
       table.insert(out, { shown[1], config.labels[action] or action })
