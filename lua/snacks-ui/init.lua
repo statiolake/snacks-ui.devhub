@@ -37,6 +37,15 @@ local defaults = {
     alternate = '直前',
     line = '行目',
     search = '検索',
+    -- The chips beside the picker's name, for the toggles that are on.
+    toggles = {
+      live = 'Live',
+      hidden = '隠しファイル',
+      ignored = '除外も',
+      follow = 'リンク先',
+      modified = '変更のみ',
+      regex = '文字どおり',
+    },
   },
   -- The actions shown on the hint row, in this order, when a key does them.
   hints = {

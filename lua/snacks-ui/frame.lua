@@ -71,41 +71,56 @@ function M.hints(picker, config)
   return out
 end
 
-local function status(picker, config)
-  local children = {}
+-- The toggles that are on, as snacks' own title shows them ({flags}: a
+-- toggle is on when the picker's option is its value, true unless it says
+-- otherwise — regex's is false, a search for the text as written), live
+-- first, then by name.
+function M.toggles_on(picker)
+  local on = {}
   for name, toggle in pairs(picker.opts.toggles or {}) do
     if toggle then
-      local want = type(toggle) == 'table' and toggle.value
+      local t = type(toggle) == 'table' and toggle or {}
+      local want = t.value
       if want == nil then
         want = true
       end
-      local enabled = not (type(toggle) == 'table' and toggle.enabled == false)
-      if enabled and picker.opts[name] == want then
-        table.insert(children, {
-          type = 'badge',
-          text = name:gsub('_', '-'),
-          hl = 'Comment',
-          on_click = function()
-            picker:action('toggle_' .. name)
-          end,
-        })
+      if t.enabled ~= false and picker.opts[name] == want then
+        table.insert(on, name)
       end
     end
   end
-  table.sort(children, function(a, b)
-    return a.text < b.text
-  end)
+  table.sort(on)
   if picker.opts.live then
-    table.insert(children, 1, { type = 'badge', text = 'live', hl = 'Function' })
+    table.insert(on, 1, 'live')
   end
+  return on
+end
+
+-- The header's left: the picker's name, then a chip for each toggle that is
+-- on (a click turns it off), as the name's pill.
+local function title(picker, config)
+  local text = picker.title or picker.opts.source or config.labels.search
+  local children = { { type = 'badge', text = text, hl = 'Function' } }
+  for _, name in ipairs(M.toggles_on(picker)) do
+    table.insert(children, {
+      type = 'badge',
+      text = (config.labels.toggles or {})[name] or (name:gsub('_', '-')),
+      hl = 'Special',
+      on_click = function()
+        picker:action('toggle_' .. name)
+      end,
+    })
+  end
+  return { type = 'hstack', gap = 4, align = 'center', children = children }
+end
+
+-- The header's right: how many items match, of how many.
+local function status(picker)
   local count = ('%d / %d'):format(picker.list:count(), #picker.finder.items)
   if picker:is_active() then
     count = '… ' .. count
   end
-  table.insert(children, { type = 'spacer', size = 4 })
-  table.insert(children, { type = 'text', runs = { { text = count, hl = 'Comment' } }, size = 'sm' })
-  local _ = config
-  return { type = 'hstack', gap = 6, align = 'center', children = children }
+  return { type = 'text', runs = { { text = count, hl = 'Comment' } }, size = 'sm' }
 end
 
 local function preview_title(picker, config)
@@ -139,11 +154,6 @@ local function preview_title(picker, config)
   return { type = 'hstack', gap = 8, align = 'center', children = children }
 end
 
-local function title(picker, config)
-  local text = picker.title or picker.opts.source or config.labels.search
-  return { type = 'badge', text = text, hl = 'Function' }
-end
-
 -- The page: as many items as DevHub's rows fit. snacks renders one page of
 -- state.height items; the hidden window keeps its size (the frame is laid
 -- out by it, and snacks reads its width to cut paths), so the height is set
@@ -169,11 +179,13 @@ local function refresh(picker, config)
     return
   end
   local changes = {}
-  local st = status(picker, config)
+  local ti = title(picker, config)
+  local st = status(picker)
   local pt = preview_title(picker, config) or { type = 'text', text = '' }
-  local key = vim.inspect { st, pt }
+  local key = vim.inspect { ti, st, pt }
   if key ~= a.sent then
     a.sent = key
+    changes.title = ti
     changes.status = st
     changes.preview_title = pt
     a.view:frame(changes)
@@ -235,7 +247,7 @@ function M.attach(picker, config)
       query = { win = picker.input.win.win, placeholder = config.labels.search },
       preview = { win = valid(picker.preview.win) and picker.preview.win.win or nil, title = preview_title(picker, config) },
       title = title(picker, config),
-      status = status(picker, config),
+      status = status(picker),
     },
   }
   local a = { view = view }
@@ -279,6 +291,14 @@ function M.attach(picker, config)
       end
     end)
   end)
+  -- A toggle (<C-g>'s live, hidden, ignored, …) changes no row by itself:
+  -- snacks writes its title then (update_titles), and so does the header.
+  local update_titles = picker.update_titles
+  picker.update_titles = function(self, ...)
+    local r = update_titles(self, ...)
+    refresh(picker, config)
+    return r
+  end
   local show_preview = picker._show_preview
   picker._show_preview = function(self, ...)
     local r = show_preview(self, ...)

@@ -44,6 +44,16 @@ check(vim.deep_equal(texts, { ' ', 'T ', 'conf', 'ig.ts', ' ', 'src' }), 'runs: 
 check(runs[3] and vim.deep_equal(runs[3].groups, { 'SnacksPickerFile', 'SnacksPickerMatch' }), 'a match over the name')
 check(runs[2] and runs[2].virtual, 'the icon is virtual')
 
+-- the toggles that are on: as snacks' {flags}, live first
+local frame = require 'snacks-ui.frame'
+local toggles = { follow = 'f', hidden = 'h', ignored = 'i', modified = 'm', regex = { icon = 'R', value = false } }
+local on = frame.toggles_on { opts = { toggles = toggles, follow = false, hidden = false, ignored = false } }
+check(#on == 0, 'every toggle off shows none: ' .. vim.inspect(on))
+on = frame.toggles_on { opts = { toggles = toggles, hidden = true, regex = false, live = true } }
+check(vim.deep_equal(on, { 'live', 'hidden', 'regex' }), 'live, hidden and a literal search: ' .. vim.inspect(on))
+on = frame.toggles_on { opts = { toggles = { hidden = { icon = 'h', enabled = false } }, hidden = true } }
+check(#on == 0, 'a disabled toggle shows none')
+
 if #failures > 0 then
   io.stderr:write('FAIL\n  ' .. table.concat(failures, '\n  ') .. '\n')
   os.exit(1)
